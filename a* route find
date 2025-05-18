@@ -1,0 +1,153 @@
+import java.util.*;
+
+/**
+ * --------------------------------------------------------------------
+ *  A* Route‑Finding Demo
+ *  -------------------------------------------------------------
+ *  • Vertices are city names (Strings)
+ *  • Edges carry a travel cost (int) – e.g., distance or time
+ *  • We also supply a domain‑specific heuristic h(n)  →  est. cost
+ *    from n to the goal (straight‑line distance, air time, etc.).
+ *
+ *  Compile:  javac AStarRoute.java
+ *  Run:      java AStarRoute
+ * --------------------------------------------------------------------
+ */
+public class AStarRoute {
+
+    /* --------- Basic graph representation (Adjacency list) --------- */
+
+    /** Edge = destination + step cost                                */
+    private static class Edge {
+        final String to;
+        final int    cost;
+        Edge(String to, int cost) { this.to = to; this.cost = cost; }
+    }
+
+    /** Map<City,  List<Edge>> */
+    private static final Map<String, List<Edge>> graph = new HashMap<>();
+
+    /** Heuristic table  h(city) → optimistic remaining cost          */
+    private static final Map<String, Integer> heuristic = new HashMap<>();
+
+
+    /* -------------- State class used by the A* algorithm ----------- */
+    private static class Node {
+        final String city;    // state identifier
+        final int g;          // cost from start to this node
+        final int f;          // g + h  (priority in the frontier)
+        final Node parent;    // back‑pointer for path reconstruction
+
+        Node(String city, int g, Node parent) {
+            this.city   = city;
+            this.g      = g;
+            this.parent = parent;
+            // f = path‑so‑far + heuristic estimate to goal
+            this.f      = g + heuristic.getOrDefault(city, 0);
+        }
+    }
+
+    /* PriorityQueue comparator: smaller f‑values first; tie‑break on g. */
+    private static class NodeComparator implements Comparator<Node> {
+        public int compare(Node a, Node b) {
+            if (a.f != b.f) return Integer.compare(a.f, b.f);
+            return Integer.compare(a.g, b.g);
+        }
+    }
+
+    /* ----------------------- A* SEARCH ----------------------------- */
+    public static void aStar(String start, String goal) {
+
+        // OPEN = frontier, ordered by lowest f = g + h
+        PriorityQueue<Node> open = new PriorityQueue<>(new NodeComparator());
+
+        // CLOSED = states already expanded with optimal g
+        Map<String, Integer> closed = new HashMap<>();
+
+        open.add(new Node(start, 0, null));   // push start node
+
+        while (!open.isEmpty()) {
+            Node current = open.poll();       // best f so far
+
+            /* Goal test -------------------------------------------------- */
+            if (current.city.equals(goal)) {
+                printPath(current);
+                return;
+            }
+
+            /* Skip if we have already found a cheaper way to this city ---- */
+            if (closed.containsKey(current.city) &&
+                closed.get(current.city) <= current.g) continue;
+
+            // Mark the cheapest g found for this city
+            closed.put(current.city, current.g);
+
+            /* Expand neighbours ----------------------------------------- */
+            for (Edge e : graph.getOrDefault(current.city, List.of())) {
+                int newG = current.g + e.cost;              // cumulative cost
+                Node child = new Node(e.to, newG, current); // successor node
+
+                /* If we have a strictly better path, add to frontier */
+                if (!closed.containsKey(e.to) || newG < closed.get(e.to))
+                    open.add(child);
+            }
+        }
+        System.out.println("❌  No path found from " + start + " to " + goal);
+    }
+
+    /* ------------- Print path + total cost once goal is reached ---- */
+    private static void printPath(Node goal) {
+        List<Node> path = new ArrayList<>();
+        for (Node n = goal; n != null; n = n.parent) path.add(n);
+        Collections.reverse(path);
+
+        System.out.println("✔  A* found a route with total cost = " + goal.g);
+        System.out.println("   Path (city → city | step‑cost):");
+
+        for (int i = 0; i < path.size() - 1; i++) {
+            String from = path.get(i).city;
+            String to   = path.get(i + 1).city;
+            int cost = graph.get(from).stream()
+                             .filter(ed -> ed.to.equals(to))
+                             .findFirst()
+                             .orElseThrow()
+                             .cost;
+            System.out.println("   • " + from + "  →  " + to
+                               + "   (+" + cost + ")");
+        }
+        System.out.println("   • " + path.get(path.size() - 1).city + "  [GOAL]");
+    }
+
+
+    /* ------------------------- SAMPLE DATA -------------------------- */
+    private static void buildDemoMap() {
+        /* Roads */
+        addEdge("A","B", 1);  addEdge("A","C", 4);
+        addEdge("B","D", 2);  addEdge("B","E", 5);
+        addEdge("C","F", 3);
+        addEdge("D","G", 1);
+        addEdge("E","G", 2);
+        addEdge("F","G", 5);
+
+        /* Heuristic (straight‑line) estimates to goal G */
+        heuristic.put("A", 7);
+        heuristic.put("B", 6);
+        heuristic.put("C", 5);
+        heuristic.put("D", 4);
+        heuristic.put("E", 3);
+        heuristic.put("F", 6);
+        heuristic.put("G", 0);
+    }
+
+    private static void addEdge(String from, String to, int cost) {
+        graph.computeIfAbsent(from, k -> new ArrayList<>()).add(new Edge(to, cost));
+        // **UN//comment** next line if your roads are bidirectional
+        // graph.computeIfAbsent(to,   k -> new ArrayList<>()).add(new Edge(from, cost));
+    }
+
+    /* ----------------------------- main ----------------------------- */
+    public static void main(String[] args) {
+        buildDemoMap();
+        aStar("A", "G");
+    }
+}
