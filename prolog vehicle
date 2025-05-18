@@ -1,3 +1,11 @@
+4.
+no.
+5.
+low.
+yes.
+
+
+
 % vehicle_classifier.pl
 :- initialization(start).
 
