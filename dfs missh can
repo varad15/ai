@@ -1,0 +1,112 @@
+import java.util.*;   // Stack, List, Collections
+
+/**
+ * Missionaries‑and‑Cannibals solver using Depth‑First Search (DFS).
+ * ---------------------------------------------------------------
+ *  – Three missionaries (M) and three cannibals (C) start on the left bank.
+ *  – The boat can carry one or two people.
+ *  – Cannibals may never outnumber missionaries on either bank (unless no
+ *    missionaries are present there).
+ *  – Goal: move everyone (and the boat) to the right bank.
+ *
+ *  DFS explores one path fully before back‑tracking.  Not guaranteed to
+ *  return the shortest path, but memory usage is very small (O(depth)).
+ */
+class MissionaryCannibalDFS {
+
+    /* ------------ Representation of one node / configuration ------------- */
+    private static class State {
+        int missionaries;   // missionaries on left bank
+        int cannibals;      // cannibals    on left bank
+        int boat;           // 1 = boat left, 0 = boat right
+        State parent;       // pointer to predecessor (for path reconstruction)
+
+        State(int m, int c, int b, State p) {
+            missionaries = m;
+            cannibals    = c;
+            boat         = b;
+            parent       = p;
+        }
+
+        /** Rejects illegal or unsafe states */
+        boolean isValid() {
+            if (missionaries < 0 || cannibals < 0 ||
+                missionaries > 3 || cannibals   > 3) return false;
+
+            boolean leftUnsafe  = missionaries > 0 && cannibals   > missionaries;
+            boolean rightUnsafe = (3 - missionaries) > 0 &&
+                                  (3 - cannibals)    > (3 - missionaries);
+
+            return !leftUnsafe && !rightUnsafe;
+        }
+
+        /** Checks if this state is the goal */
+        boolean isGoal() {
+            return missionaries == 0 && cannibals == 0 && boat == 0;
+        }
+
+        /** Generates all legal successor states reachable in one boat trip */
+        List<State> nextStates() {
+            List<State> list = new ArrayList<>();
+            int[][] moves = { {1,0}, {2,0}, {0,1}, {0,2}, {1,1} };
+
+            for (int[] mv : moves) {
+                int newM = missionaries + (boat == 1 ? -mv[0] :  mv[0]);
+                int newC = cannibals    + (boat == 1 ? -mv[1] :  mv[1]);
+                int newB = 1 - boat;
+
+                State s = new State(newM, newC, newB, this);
+                if (s.isValid()) list.add(s);
+            }
+            return list;
+        }
+
+        /** Unique key “M,C,B” for visited‑set */
+        String key() { return missionaries + "," + cannibals + "," + boat; }
+    }
+    /* ------------------------------ DFS ---------------------------------- */
+    private static void dfs() {
+        Stack<State> frontier = new Stack<>();
+        Set<String> visited   = new HashSet<>();
+
+        State start = new State(3, 3, 1, null);
+        frontier.push(start);
+        visited.add(start.key());
+
+        while (!frontier.isEmpty()) {
+            State cur = frontier.pop();
+
+            if (cur.isGoal()) {
+                printPath(cur);
+                return;
+            }
+
+            /* Push successors in ANY order.  Stack makes DFS behaviour.      */
+            for (State nxt : cur.nextStates()) {
+                if (visited.add(nxt.key())) {     // true only if not seen yet
+                    frontier.push(nxt);
+                }
+            }
+        }
+        System.out.println("No solution exists.");
+    }
+
+    /* Walk back with parent links, then print start‑>goal path */
+    private static void printPath(State goal) {
+        List<State> path = new ArrayList<>();
+        for (State s = goal; s != null; s = s.parent) path.add(s);
+        Collections.reverse(path);
+
+        System.out.println("Path length (crossings): " + (path.size() - 1));
+        for (State s : path) {
+            System.out.println("(" + s.missionaries + ", "
+                                 + s.cannibals    + ", "
+                                 + (s.boat == 1 ? "Boat‑Left" : "Boat‑Right") + ")");
+        }
+    }
+
+    /* --------------------------- entry point ----------------------------- */
+    public static void main(String[] args) {
+        dfs();
+    }
+}
