@@ -1,0 +1,118 @@
+import java.util.Scanner;
+
+public class TicTacToeAlphaBeta {
+
+    private static final char[][] board = {
+        {' ', ' ', ' '},
+        {' ', ' ', ' '},
+        {' ', ' ', ' '}
+    };
+
+    private static final Scanner sc = new Scanner(System.in);
+
+    // ────────── Utility helpers ──────────
+    private static void printBoard() {
+        System.out.println();
+        for (char[] row : board) {
+            for (char c : row) System.out.print("|" + c);
+            System.out.println("|");
+        }
+        System.out.println();
+    }
+
+    private static boolean isWinning(char p) {
+        for (int i = 0; i < 3; i++)
+            if ((board[i][0] == p && board[i][1] == p && board[i][2] == p) ||
+                (board[0][i] == p && board[1][i] == p && board[2][i] == p))
+                return true;
+        return (board[0][0] == p && board[1][1] == p && board[2][2] == p) ||
+               (board[0][2] == p && board[1][1] == p && board[2][0] == p);
+    }
+
+    private static boolean boardFull() {
+        for (char[] row : board)
+            for (char c : row) if (c == ' ') return false;
+        return true;
+    }
+
+    // ────────── Minimax with α‑β pruning ──────────
+    private static int minimax(boolean isMax, int alpha, int beta) {
+        if (isWinning('O')) return  1;   // AI wins
+        if (isWinning('X')) return -1;   // Human wins
+        if (boardFull())    return  0;   // Draw
+
+        if (isMax) {                     // Maximizing for 'O'
+            int best = -10;
+            for (int r = 0; r < 3; r++) {
+                for (int c = 0; c < 3; c++) {
+                    if (board[r][c] == ' ') {
+                        board[r][c] = 'O';
+                        best = Math.max(best, minimax(false, alpha, beta));
+                        board[r][c] = ' ';
+                        alpha = Math.max(alpha, best);
+                        if (beta <= alpha) return best;  // β‑cutoff
+                    }
+                }
+            }
+            return best;
+        } else {                         // Minimizing for 'X'
+            int best = 10;
+            for (int r = 0; r < 3; r++) {
+                for (int c = 0; c < 3; c++) {
+                    if (board[r][c] == ' ') {
+                        board[r][c] = 'X';
+                        best = Math.min(best, minimax(true, alpha, beta));
+                        board[r][c] = ' ';
+                        beta = Math.min(beta, best);
+                        if (beta <= alpha) return best;  // α‑cutoff
+                    }
+                }
+            }
+            return best;
+        }
+    }
+
+    private static void makeBestMove() {
+        int bestScore = -10, bestR = -1, bestC = -1;
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 3; c++) {
+                if (board[r][c] == ' ') {
+                    board[r][c] = 'O';
+                    int score = minimax(false, -10, 10);   // start with full range
+                    board[r][c] = ' ';
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestR = r; bestC = c;
+                    }
+                }
+            }
+        }
+        board[bestR][bestC] = 'O';
+    }
+
+    // ────────── Main game loop ──────────
+    public static void main(String[] args) {
+        System.out.println("Tic‑Tac‑Toe (You=X, AI=O) — minimax with α‑β pruning");
+        printBoard();
+
+        while (true) {
+            // ---------- Human ----------
+            int r, c;
+            do {
+                System.out.print("Enter row col (0‑2): ");
+                r = sc.nextInt();  c = sc.nextInt();
+            } while (r<0 || r>2 || c<0 || c>2 || board[r][c] != ' ');
+            board[r][c] = 'X';
+            printBoard();
+            if (isWinning('X')) { System.out.println("You win!"); break; }
+            if (boardFull())    { System.out.println("Draw!");    break; }
+
+            // ---------- AI ----------
+            makeBestMove();
+            printBoard();
+            if (isWinning('O')) { System.out.println("AI wins!"); break; }
+            if (boardFull())    { System.out.println("Draw!");    break; }
+        }
+        sc.close();
+    }
+}
