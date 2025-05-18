@@ -1,0 +1,103 @@
+import java.util.*;   // HashSet, List, ArrayList
+
+/**
+ * Water‑Jar problem solved using Depth‑First Search (DFS)
+ * -------------------------------------------------------
+ *  • Two jugs with capacities CAP_A and CAP_B.
+ *  • Unlimited water supply; six legal actions (fill / empty / pour).
+ *  • Goal: obtain TARGET litres in either jug.
+ *
+ *  DFS goes deep along one path until it dead‑ends, then backtracks.
+ *  Not guaranteed to find the *shortest* solution, but easy to code.
+ */
+public class WaterJarDFS {
+
+    /* ---------------- you can tweak these three constants --------------- */
+    private static final int CAP_A  = 4;   // capacity of jug A
+    private static final int CAP_B  = 3;   // capacity of jug B
+    private static final int TARGET = 2;   // desired amount
+    /* -------------------------------------------------------------------- */
+
+    /* -------------------- search‑tree node / state ---------------------- */
+    private static class State {
+        int a, b;             // current volumes in jugs
+        String action;        // move that produced this state
+        State parent;         // predecessor (for printing the path)
+
+        State(int a, int b, String action, State parent) {
+            this.a = a; this.b = b;
+            this.action = action;
+            this.parent = parent;
+        }
+
+        String key() { return a + "," + b; }              // for visited set
+        boolean isGoal() { return a == TARGET || b == TARGET; }
+
+        /** All possible successor states reached in one legal move */
+        List<State> nextStates() {
+            List<State> list = new ArrayList<>();
+
+            // Fill A
+            if (a < CAP_A) list.add(new State(CAP_A, b, "Fill A", this));
+            // Fill B
+            if (b < CAP_B) list.add(new State(a, CAP_B, "Fill B", this));
+            // Empty A
+            if (a > 0)     list.add(new State(0, b, "Empty A", this));
+            // Empty B
+            if (b > 0)     list.add(new State(a, 0, "Empty B", this));
+            // Pour A → B
+            if (a > 0 && b < CAP_B) {
+                int pour = Math.min(a, CAP_B - b);
+                list.add(new State(a - pour, b + pour,
+                                   "Pour A → B (" + pour + "L)", this));
+            }
+            // Pour B → A
+            if (b > 0 && a < CAP_A) {
+                int pour = Math.min(b, CAP_A - a);
+                list.add(new State(a + pour, b - pour,
+                                   "Pour B → A (" + pour + "L)", this));
+            }
+            return list;
+        }
+    }
+
+    /* --------------------------- DFS driver ----------------------------- */
+    private static boolean dfs(State current, Set<String> visited) {
+        if (current.isGoal()) {                 // goal reached
+            printPath(current);
+            return true;
+        }
+
+        for (State next : current.nextStates()) {
+            if (visited.add(next.key())) {      // not visited yet
+                if (dfs(next, visited))         // deep recursive call
+                    return true;                // bubble up success
+            }
+        }
+        return false;                           // dead end, backtrack
+    }
+
+    /* ----------------------- path reconstruction ------------------------ */
+    private static void printPath(State goal) {
+        List<State> path = new ArrayList<>();
+        for (State s = goal; s != null; s = s.parent) path.add(s);
+        Collections.reverse(path);
+
+        System.out.println("DFS found a solution in " + (path.size() - 1) + " steps:");
+        for (int i = 0; i < path.size(); i++) {
+            State s = path.get(i);
+            System.out.printf("%2d. %-18s (%d, %d)%n",
+                              i, s.action, s.a, s.b);
+        }
+    }
+
+    /* ------------------------------ main -------------------------------- */
+    public static void main(String[] args) {
+        State start = new State(0, 0, "Start", null);
+        Set<String> visited = new HashSet<>();
+        visited.add(start.key());
+
+        if (!dfs(start, visited))
+            System.out.println("No solution exists for these parameters.");
+    }
+}
