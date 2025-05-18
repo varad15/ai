@@ -1,0 +1,138 @@
+//O(b^d),
+import java.util.*;
+
+/**
+ * 8‑Puzzle solver using Breadth‑First Search (BFS)
+ * ───────────────────────────────────────────────
+ *  Goal configuration (can be changed):
+ *      1 2 3
+ *      4 5 6
+ *      7 8 _
+ *
+ *  The blank tile is represented by 0.
+ *
+ *  Compile : javac EightPuzzleBFS.java
+ *  Run     : java EightPuzzleBFS
+ */
+public class EightPuzzleBFS {
+
+    /* ──────────── immutable board state ──────────── */
+    private static final class State {
+        final int[] tiles;          // length 9, row‑major
+        final int  blank;           // index of 0 in tiles[]
+        final State parent;         // predecessor (for path)
+        final char  move;           // move leading here: U,D,L,R or 'S' for start
+
+        State(int[] tiles, int blank, State parent, char move) {
+            this.tiles  = tiles;
+            this.blank  = blank;
+            this.parent = parent;
+            this.move   = move;
+        }
+
+        /** Produce a unique string key for hash set / map */
+        String key() {
+            StringBuilder sb = new StringBuilder(9);
+            for (int t : tiles) sb.append((char) ('0' + t));   // 0‑8
+            return sb.toString();
+        }
+
+        /** True if board matches the GOAL configuration */
+        boolean isGoal() {
+            for (int i = 0; i < 8; i++)
+                if (tiles[i] != i + 1) return false;
+            return tiles[8] == 0;
+        }
+
+        /** Generate all legal neighbour states */
+        List<State> neighbours() {
+            List<State> list = new ArrayList<>(4);
+
+            int r = blank / 3, c = blank % 3;
+            int[][] delta = { {-1,0,'D'}, {1,0,'U'}, {0,-1,'R'}, {0,1,'L'} };
+            // ↑Up means blank moves up, tile moves Down; we store inverse for clarity
+
+            for (int[] d : delta) {
+                int nr = r + d[0], nc = c + d[1];
+                if (nr < 0 || nr > 2 || nc < 0 || nc > 2) continue; // outside board
+                int nBlank = nr * 3 + nc;
+
+                int[] newTiles = tiles.clone();
+                newTiles[blank]   = newTiles[nBlank];  // move tile into blank
+                newTiles[nBlank]  = 0;                 // new blank position
+                list.add(new State(newTiles, nBlank, this, (char) d[2]));
+            }
+            return list;
+        }
+    }
+
+    /* ──────────────── BFS search ──────────────── */
+    private static void bfs(int[] startTiles) {
+        State start = new State(startTiles, findBlank(startTiles), null, 'S');
+
+        Queue<State> frontier = new ArrayDeque<>();
+        Set<String> visited   = new HashSet<>();
+
+        frontier.add(start);
+        visited.add(start.key());
+
+        while (!frontier.isEmpty()) {
+            State cur = frontier.poll();
+
+            if (cur.isGoal()) {
+                printSolution(cur);
+                return;
+            }
+            for (State nxt : cur.neighbours()) {
+                if (visited.add(nxt.key()))         // add returns false if already there
+                    frontier.add(nxt);
+            }
+        }
+        System.out.println("No solution (start state unsolvable).");
+    }
+
+    /* ───────────── helper utilities ───────────── */
+    private static int findBlank(int[] t) {
+        for (int i = 0; i < 9; i++) if (t[i] == 0) return i;
+        throw new IllegalArgumentException("No blank (0) in tiles");
+    }
+
+    /** Reconstruct path by following parent links, then print boards & moves */
+    private static void printSolution(State goal) {
+        List<State> path = new ArrayList<>();
+        for (State s = goal; s != null; s = s.parent) path.add(s);
+        Collections.reverse(path);
+
+        System.out.println("Solved in " + (path.size() - 1) + " moves:");
+        StringBuilder moves = new StringBuilder();
+        for (State s : path) {
+            printBoard(s.tiles);
+            if (s.move != 'S') moves.append(s.move);
+        }
+        System.out.println("Move sequence: " + moves);
+    }
+
+    private static void printBoard(int[] t) {
+        for (int i = 0; i < 9; i++) {
+            System.out.print(t[i] == 0 ? " _" : " " + t[i]);
+            if (i % 3 == 2) System.out.println();
+        }
+        System.out.println();
+    }
+
+    /* ────────────────── entry point ────────────────── */
+    public static void main(String[] args) {
+        // Example start state (solvable in 12 moves): 1 2 3 / 4 0 6 / 7 5 8
+        int[] start = {1,2,3,4,0,6,7,5,8};
+
+        // If you want to read from stdin: uncomment next lines
+        /*
+        Scanner sc = new Scanner(System.in);
+        int[] start = new int[9];
+        System.out.println("Enter start state (row‑major, use 0 for blank):");
+        for (int i = 0; i < 9; i++) start[i] = sc.nextInt();
+        */
+
+        bfs(start);
+    }
+}
