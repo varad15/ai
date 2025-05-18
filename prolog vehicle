@@ -1,0 +1,82 @@
+% vehicle_classifier.pl
+:- initialization(start).
+
+% ───────── dynamic facts ─────────
+:- dynamic(wheels/1).
+:- dynamic(has_handlebar/1).
+:- dynamic(cargo_capacity/1).
+:- dynamic(passenger_capacity/1).
+:- dynamic(carries_passengers/1).
+
+% ───────── rules ─────────
+vehicle(motorcycle) :-
+    wheels(2),
+    has_handlebar(yes).
+
+vehicle(car) :-
+    wheels(4),
+    carries_passengers(yes),
+    cargo_capacity(low).
+
+vehicle(truck) :-
+    wheels(6),
+    cargo_capacity(high).
+
+vehicle(bus) :-
+    wheels(4),
+    passenger_capacity(P),
+    P > 10.
+
+% ───────── main flow ─────────
+start :-
+    ask_wheels,
+    ask_handlebar,
+    ask_passenger_capacity,
+    ask_cargo_capacity,
+    ask_carries_passengers,
+    identify,
+    cleanup,
+    halt.           % exit cleanly after one run
+
+% ───────── questions ─────────
+ask_wheels :-
+    write('How many wheels? '),
+    read(W),
+    assertz(wheels(W)).
+
+ask_handlebar :-
+    write('Does it have a handlebar? (yes/no) '),
+    read(H),
+    assertz(has_handlebar(H)).
+
+ask_passenger_capacity :-
+    write('How many passengers can it carry? '),
+    read(P),
+    assertz(passenger_capacity(P)).
+
+ask_cargo_capacity :-
+    write('Is cargo capacity low, medium, or high? '),
+    read(C),
+    assertz(cargo_capacity(C)).
+
+ask_carries_passengers :-
+    write('Does it carry passengers? (yes/no) '),
+    read(CP),
+    assertz(carries_passengers(CP)).
+
+% ───────── result ─────────
+identify :-
+    vehicle(V),
+    nl,
+    write('The vehicle is classified as: '), write(V), nl.
+identify :-
+    nl,
+    write('Unable to classify the vehicle with the given information.'), nl.
+
+% ───────── cleanup ─────────
+cleanup :-
+    retractall(wheels(_)),
+    retractall(has_handlebar(_)),
+    retractall(cargo_capacity(_)),
+    retractall(passenger_capacity(_)),
+    retractall(carries_passengers(_)).
