@@ -1,0 +1,113 @@
+import java.util.*;
+
+/**
+ * Greedy Best‑First Search on a simple directed graph.
+ * Heuristic h(n) is supplied in a map; the algorithm always expands
+ * the node with the smallest h(n) that has not yet been visited.
+ *
+ * Example graph is the same as in the C++ source:
+ *      A─1─►B─2─►D─1─►G
+ *      │    └5─►E─2─┘
+ *      └4─►C─3─►F─5─►G
+ */
+public class GreedyBestFirstSearch {
+
+    /* ---------- simple Edge record ---------- */
+    private static class Edge {
+        final String to;
+        final int    cost;
+        Edge(String t, int c) { to = t; cost = c; }
+    }
+
+    /* ---------- node stored in the OPEN queue ---------- */
+    private static class Node {
+        final String name;
+        final int    h;          // heuristic value
+        final Node   parent;     // back‑pointer for path
+        Node(String n, int h, Node p) {
+            name = n; this.h = h; parent = p;
+        }
+    }
+
+    /* ---------- PQ comparator: smaller h first ---------- */
+    private static class CompareNode implements Comparator<Node> {
+        public int compare(Node a, Node b) { return Integer.compare(a.h, b.h); }
+    }
+
+    /* ---------- main search routine ---------- */
+    private static void bestFirstSearch(Map<String,List<Edge>> graph,
+                                        Map<String,Integer> heur,
+                                        String start, String goal) {
+
+        PriorityQueue<Node> open = new PriorityQueue<>(new CompareNode());
+        Set<String>         closed = new HashSet<>();
+
+        open.add(new Node(start, heur.get(start), null));
+
+        while (!open.isEmpty()) {
+            Node cur = open.poll();
+
+            if (closed.contains(cur.name)) continue;
+            closed.add(cur.name);
+
+            if (cur.name.equals(goal)) {     // found!
+                printPath(cur, graph, heur);
+                return;
+            }
+
+            for (Edge e : graph.get(cur.name)) {
+                if (!closed.contains(e.to)) {
+                    open.add(new Node(e.to, heur.get(e.to), cur));
+                }
+            }
+        }
+        System.out.println("No path found.");
+    }
+
+    /* ---------- reconstruct‑and‑print path + total cost ---------- */
+    private static void printPath(Node goal,
+                                  Map<String,List<Edge>> graph,
+                                  Map<String,Integer> heur) {
+
+        List<Node> path = new ArrayList<>();
+        for (Node n = goal; n != null; n = n.parent) path.add(n);
+        Collections.reverse(path);
+
+        int totalCost = 0;
+        System.out.println("Path (Greedy Best‑First):");
+        for (int i = 0; i + 1 < path.size(); i++) {
+            String from = path.get(i).name;
+            String to   = path.get(i+1).name;
+
+            int edgeCost = graph.get(from).stream()
+                                 .filter(e -> e.to.equals(to))
+                                 .findFirst().orElseThrow().cost;
+
+            totalCost += edgeCost;
+            System.out.printf("%s -> %s  (edge cost %d,  h=%d)%n",
+                               from, to, edgeCost, heur.get(to));
+        }
+        System.out.println("Total path cost = " + totalCost);
+    }
+
+    /* ---------------------------- demo ---------------------------- */
+    public static void main(String[] args) {
+
+        Map<String,List<Edge>> graph = new HashMap<>();
+        graph.put("A", List.of(new Edge("B",1), new Edge("C",4)));
+        graph.put("B", List.of(new Edge("D",2), new Edge("E",5)));
+        graph.put("C", List.of(new Edge("F",3)));
+        graph.put("D", List.of(new Edge("G",1)));
+        graph.put("E", List.of(new Edge("G",2)));
+        graph.put("F", List.of(new Edge("G",5)));
+        graph.put("G", List.of());   // goal
+
+        Map<String,Integer> heuristic = Map.of(
+            "A",7, "B",6, "C",5,
+            "D",4, "E",3, "F",6,
+            "G",0   // goal
+        );
+
+        bestFirstSearch(graph, heuristic, "A", "G");
+    }
+}
