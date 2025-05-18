@@ -1,3 +1,4 @@
+//Time Complexity: O(1) per move
 import java.util.Scanner;
 
 public class TicTacToeRuleBased {
