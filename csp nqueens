@@ -1,0 +1,152 @@
+ //O(N !)
+import java.util.*;
+
+/**
+ * ---------------------------------------------------------
+ * N‑Queens Solver  –  Constraint‑Satisfaction formulation
+ * ---------------------------------------------------------
+ *  • Variables     : Q0 … Q(N‑1)  (row index of each queen)
+ *  • Domains       : {0 … N‑1}    (any row can host a queen)
+ *  • Constraints   : no two queens share
+ *        – a row          (Qi ≠ Qj)
+ *        – a column       (by definition, each variable is a column)
+ *        – a diagonal     (|Qi − Qj| ≠ |i − j|)
+ *
+ *  The program uses back‑tracking search enhanced with
+ *    1. **Forward‑checking** – prune row values that become impossible
+ *    2. **MRV (Minimum‑Remaining‑Values)** heuristic for variable order
+ *
+ *  Compile:  javac NQueensCSP.java
+ *  Run    :  java  NQueensCSP  8        (default 8 if no arg)
+ */
+public class NQueensCSP {
+
+    /* --------------  Internal data structures  ---------------- */
+
+    /** Domain[row] == true  ⇢  the row is still available in this column */
+    private static class CSPState {
+        /** assignments[col] == row chosen for that queen, or -1 if unassigned */
+        int[] assignments;
+        /** domains[col][row] == true if (col,row) is still legal */
+        boolean[][] domains;
+
+        CSPState(int n) {
+            assignments = new int[n];
+            Arrays.fill(assignments, -1);
+            domains = new boolean[n][n];
+            for (boolean[] col : domains) Arrays.fill(col, true);
+        }
+
+        /** Copy‑constructor for branching (cheap deep copy) */
+        CSPState(CSPState other) {
+            assignments = other.assignments.clone();
+            domains = new boolean[other.domains.length][];
+            for (int c = 0; c < domains.length; c++)
+                domains[c] = other.domains[c].clone();
+        }
+    }
+
+    /* ----------------------  Public API  ----------------------- */
+
+    public static void main(String[] args) {
+        int N = args.length > 0 ? Integer.parseInt(args[0]) : 8;
+        CSPState solution = solveNQueens(N);
+
+        if (solution != null) {
+            System.out.println("\nSolved for N = " + N + ":");
+            printBoard(solution.assignments);
+        } else {
+            System.out.println("No solution exists for N = " + N);
+        }
+    }
+
+    /* ---------------------  Core solver  ----------------------- */
+
+    private static CSPState solveNQueens(int n) {
+        return backtrack(new CSPState(n));
+    }
+
+    /** Back‑tracking search with MRV + forward‑checking */
+    private static CSPState backtrack(CSPState state) {
+
+        /* 1. TERMINATION: if every column assigned, solution found */
+        int col = selectUnassignedColumn(state);
+        if (col == -1) return state;   // all assigned
+
+        /* 2. ORDER domain values (rows) – simple ascending order here */
+        for (int row = 0; row < state.assignments.length; row++) {
+            if (!state.domains[col][row]) continue;  // pruned earlier
+
+            /* 3. CREATE a child state and assign (col,row) */
+            CSPState child = new CSPState(state);
+            child.assignments[col] = row;
+
+            /* 4. FORWARD CHECKING – prune inconsistent rows in remaining cols */
+            if (!forwardCheck(child, col, row)) continue; // dead‑end, try next row
+
+            /* 5. RECURSE */
+            CSPState result = backtrack(child);
+            if (result != null) return result;       // success bubbles up
+        }
+        return null;    // failure – back‑track
+    }
+
+    /* -----------  Variable‑ordering: Minimum Remaining Values ------------- */
+    private static int selectUnassignedColumn(CSPState s) {
+        int n = s.assignments.length;
+        int bestCol = -1, bestDomainSize = Integer.MAX_VALUE;
+
+        for (int c = 0; c < n; c++) {
+            if (s.assignments[c] != -1) continue;  // already set
+
+            // count remaining legal rows in this column
+            int size = 0;
+            for (boolean ok : s.domains[c]) if (ok) size++;
+
+            // MRV heuristic: choose column with fewest legal moves
+            if (size < bestDomainSize) {
+                bestDomainSize = size;
+                bestCol = c;
+            }
+            // Early failure: empty domain means dead‑end
+            if (size == 0) return -1;
+        }
+        return bestCol;
+    }
+
+    /* -----------------  Forward‑checking propagation  -------------------- */
+    /** After placing a queen, wipe out conflicting rows in other columns */
+    private static boolean forwardCheck(CSPState s, int col, int row) {
+        int n = s.assignments.length;
+
+        for (int c = 0; c < n; c++) {
+            if (c == col) continue;      // skip current column
+            if (s.assignments[c] != -1) continue; // already fixed
+
+            /* Row attack */
+            s.domains[c][row] = false;
+
+            /* Diagonal attacks: |row - row'| == |col - col'| */
+            int dist = Math.abs(c - col);
+            if (row - dist >= 0)               s.domains[c][row - dist] = false;
+            if (row + dist <  n)               s.domains[c][row + dist] = false;
+
+            /* If a domain becomes empty, the branch is doomed */
+            boolean hasValue = false;
+            for (boolean ok : s.domains[c]) if (ok) { hasValue = true; break; }
+            if (!hasValue) return false;
+        }
+        return true;
+    }
+
+    /* ---------------------------  Output  ------------------------------ */
+    private static void printBoard(int[] assignment) {
+        int n = assignment.length;
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < n; c++) {
+                System.out.print(assignment[c] == r ? " Q" : " .");
+            }
+            System.out.println();
+        }
+    }
+}
