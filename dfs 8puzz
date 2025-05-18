@@ -1,0 +1,108 @@
+//0(b^d)
+import java.util.*;   // Stack, HashSet, Arrays, List
+
+/**
+ * 8‑Puzzle solver using Depth‑First Search (uninformed, no heuristic).
+ * -------------------------------------------------------------------
+ *  – State is a 3 × 3 array flattened to a String "12345678_" ( '_' = blank ).
+ *  – DFS explores one path as deep as possible before back‑tracking.
+ *  – Cycle detection via a visited‑set so we do not revisit earlier states.
+ *  – Depth‑limit is optional; without it DFS may wander forever on unsolvable
+ *    branches, so a sensible limit (e.g., 31 – the known maximum optimal depth
+ *    for 8‑puzzle) is included.
+ *
+ *  Compile:  javac EightPuzzleDFS.java
+ *  Run:      java  EightPuzzleDFS
+ */
+public class EightPuzzleDFS {
+
+    /* ------------- State representation --------------- */
+    private static class Node {
+        String config;   // 9‑char board, e.g. "12345678_"
+        int    depth;    // how deep in the search tree
+        Node   parent;   // pointer for path reconstruction
+
+        Node(String c, int d, Node p) { config = c; depth = d; parent = p; }
+    }
+
+    private static final String GOAL = "12345678_";  // canonical goal
+
+    /* --------- DFS search with optional depth‑limit ---------- */
+    private static void dfs(String start, int depthLimit) {
+        Stack<Node>  stack   = new Stack<>();
+        Set<String>  visited = new HashSet<>();
+
+        stack.push(new Node(start, 0, null));
+        visited.add(start);
+
+        while (!stack.isEmpty()) {
+            Node cur = stack.pop();
+
+            if (cur.config.equals(GOAL)) {         // goal reached
+                printPath(cur);
+                return;
+            }
+            if (cur.depth == depthLimit) continue; // reached depth cap
+
+            for (String next : expand(cur.config)) {
+                if (visited.add(next)) {           // only push unseen states
+                    stack.push(new Node(next, cur.depth + 1, cur));
+                }
+            }
+        }
+        System.out.println("No solution found within depth " + depthLimit);
+    }
+
+    /* --------- Generate legal neighbor boards --------------- */
+    private static List<String> expand(String conf) {
+        List<String> neighbors = new ArrayList<>();
+        int blank = conf.indexOf('_');                 // position 0‑8
+        int row   = blank / 3, col = blank % 3;
+
+        int[][] moves = { {row-1,col}, {row+1,col}, {row,col-1}, {row,col+1} }; // U,D,L,R
+        for (int[] mv : moves) {
+            int r = mv[0], c = mv[1];
+            if (r < 0 || r > 2 || c < 0 || c > 2) continue; // off‑board
+            int swap = r * 3 + c;
+            char[] board = conf.toCharArray();
+            board[blank] = board[swap];
+            board[swap]  = '_';
+            neighbors.add(new String(board));
+        }
+        return neighbors;
+    }
+
+    /* --------- Print solution path from start to goal -------- */
+    private static void printPath(Node goal) {
+        List<String> path = new ArrayList<>();
+        for (Node n = goal; n != null; n = n.parent) path.add(n.config);
+        Collections.reverse(path);
+
+        System.out.println("Solved in " + (path.size() - 1) + " moves:");
+        for (String s : path) {
+            System.out.println(formatBoard(s));
+            System.out.println();
+        }
+    }
+
+    /* --------- Pretty 3×3 board for console output ----------- */
+    private static String formatBoard(String conf) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < conf.length(); i++) {
+            sb.append(conf.charAt(i) == '_' ? ' ' : conf.charAt(i)).append(' ');
+            if (i % 3 == 2) sb.append('\n');
+        }
+        return sb.toString();
+    }
+
+    /* ----------------------- main ----------------------------- */
+    public static void main(String[] args) {
+        // Example start (hard instance):  "7245_6831"
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter start config (e.g., 7245_6831) : ");
+        String start = sc.next();
+
+        int depthCap = 31;         // safe upper‑bound for optimal depth
+        dfs(start, depthCap);
+    }
+}
