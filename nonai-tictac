@@ -1,0 +1,60 @@
+import java.util.Scanner;
+
+public class TicTacToeRuleBased {
+    static char[][] board = {{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}};
+
+    public static void printBoard() {
+        for (char[] row : board) {
+            for (char cell : row) {
+                System.out.print("|" + cell);
+            }
+            System.out.println("|");
+        }
+        System.out.println();
+    }
+
+    public static boolean isWinning(char player) {
+        for (int i = 0; i < 3; i++) {
+            if ((board[i][0] == player && board[i][1] == player && board[i][2] == player) ||
+                (board[0][i] == player && board[1][i] == player && board[2][i] == player)) return true;
+        }
+        return (board[0][0] == player && board[1][1] == player && board[2][2] == player) ||
+               (board[0][2] == player && board[1][1] == player && board[2][0] == player);
+    }
+
+    public static void makeMove() {
+        if (board[1][1] == ' ') {
+            board[1][1] = 'O'; 
+            return;
+        }
+        int[][] moves = {{0, 0}, {0, 2}, {2, 0}, {2, 2}, {0, 1}, {1, 0}, {1, 2}, {2, 1}};
+        for (int[] move : moves) {
+            if (board[move[0]][move[1]] == ' ') {
+                board[move[0]][move[1]] = 'O';
+                return;
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        while (true) {
+            printBoard();
+            System.out.println("Enter row and column (0-2): ");
+            int row = sc.nextInt(), col = sc.nextInt();
+            if (board[row][col] != ' ') continue;
+            board[row][col] = 'X';
+            if (isWinning('X')) {
+                printBoard();
+                System.out.println("Player wins!");
+                break;
+            }
+            makeMove();
+            if (isWinning('O')) {
+                printBoard();
+                System.out.println("Computer wins!");
+                break;
+            }
+        }
+    }
+}
