@@ -1,3 +1,4 @@
+//Worst-case: O(b^d) = O(9!) = O(362880) [without pruning]
 import java.util.Scanner;
 
 public class TicTacToeAlphaBeta {
