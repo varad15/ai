@@ -1,0 +1,166 @@
+import java.util.*;
+
+/**
+ * ---------------------------------------------------------------------------
+ *  Graph‑Coloring CSP
+ *  -------------------
+ *  • Variables  : one variable per vertex
+ *  • Domain     : {0 … k‑1}  (indices of available colors)
+ *  • Constraint : adjacent vertices must have different colors
+ *
+ *  Techniques   :
+ *      – Depth‑first back‑tracking search
+ *      – MRV  (choose vertex whose domain is currently smallest)
+ *      – Forward‑checking (when we color v, remove that color from
+ *        the domains of all uncolored neighbours; restore on back‑track)
+ * ---------------------------------------------------------------------------
+ */
+public class GraphColoringCSP {
+
+    /* ------------  Small helper data‑structures  ------------------------ */
+
+    /** Simple undirected graph represented with an adjacency list */
+    private static class Graph {
+        final int n;                    // #vertices (0 … n‑1)
+        final List<List<Integer>> adj;  // adjacency lists
+
+        Graph(int n) {
+            this.n   = n;
+            adj      = new ArrayList<>(n);
+            for (int i = 0; i < n; i++) adj.add(new ArrayList<>());
+        }
+        void addEdge(int u, int v) {    // undirected edge (u,v)
+            adj.get(u).add(v);
+            adj.get(v).add(u);
+        }
+    }
+
+    /* ------------------------  Solver  ---------------------------------- */
+
+    private final Graph G;
+    private final int k;                    // number of colors
+    private final int[] assignment;         // color chosen for each vertex (‑1 = unassigned)
+    private final List<Set<Integer>> dom;   // current domain for each vertex
+
+    public GraphColoringCSP(Graph g, int colors) {
+        this.G          = g;
+        this.k          = colors;
+        this.assignment = new int[g.n];
+        Arrays.fill(assignment, -1);
+
+        // Start with full domain {0 … k‑1} for every vertex
+        dom = new ArrayList<>(g.n);
+        for (int i = 0; i < g.n; i++) {
+            Set<Integer> set = new HashSet<>();
+            for (int c = 0; c < k; c++) set.add(c);
+            dom.add(set);
+        }
+    }
+
+    /** PUBLIC API – returns an int[k] array with colors or null if impossible */
+    public int[] solve() {
+        return backtrack() ? assignment : null;
+    }
+
+    /* --------------------  Back‑tracking search  ------------------------ */
+
+    /** Recursive DFS that returns true as soon as a complete legal coloring is found */
+    private boolean backtrack() {
+        // 1.  Check if all vertices assigned
+        int v = selectUnassignedVertex();      // MRV heuristic
+        if (v == -1) return true;              // success – all colored
+
+        // 2.  Try every color still allowed for v
+        List<Integer> colors = new ArrayList<>(dom.get(v));
+        for (int color : colors) {
+            if (isConsistent(v, color)) {
+                // --- choose ---------------------------------------------
+                assignment[v] = color;
+                Map<Integer, Set<Integer>> pruned = forwardCheck(v, color);
+
+                // --- explore -------------------------------------------
+                if (backtrack()) return true;
+
+                // --- undo (back‑track) ----------------------------------
+                undoForwardCheck(pruned);
+                assignment[v] = -1;
+            }
+        }
+        return false;   // trigger back‑tracking
+    }
+
+    /* Choose the unassigned vertex with the smallest domain (MRV). */
+    private int selectUnassignedVertex() {
+        int best = -1, bestSize = Integer.MAX_VALUE;
+        for (int v = 0; v < G.n; v++) {
+            if (assignment[v] == -1) {                 // unassigned
+                int size = dom.get(v).size();
+                if (size < bestSize) { bestSize = size; best = v; }
+            }
+        }
+        return best;
+    }
+
+    /* Check against already assigned neighbours only (quick test). */
+    private boolean isConsistent(int v, int color) {
+        for (int nb : G.adj.get(v))
+            if (assignment[nb] == color)
+                return false;
+        return true;
+    }
+
+    /* --------------------------------------------------------------------
+     *  Forward‑checking: once we assign (v = color) we remove that color
+     *  from the domain of every *unassigned* neighbour.
+     *  We remember exactly what was removed so we can restore it later.
+     * ------------------------------------------------------------------ */
+    private Map<Integer, Set<Integer>> forwardCheck(int v, int color) {
+        Map<Integer, Set<Integer>> pruned = new HashMap<>();
+
+        for (int nb : G.adj.get(v)) {
+            if (assignment[nb] == -1) {      // only unassigned neighbours
+                Set<Integer> domNb = dom.get(nb);
+                if (domNb.remove(color)) {   // color actually pruned?
+                    pruned
+                        .computeIfAbsent(nb, x -> new HashSet<>())
+                        .add(color);
+                }
+            }
+        }
+        return pruned;
+    }
+
+    /* Restore pruned colors when we back‑track. */
+    private void undoForwardCheck(Map<Integer, Set<Integer>> pruned) {
+        for (Map.Entry<Integer, Set<Integer>> e : pruned.entrySet()) {
+            dom.get(e.getKey()).addAll(e.getValue());
+        }
+    }
+
+    /* -------------------------  Demo  ----------------------------------- */
+
+    public static void main(String[] args) {
+        /*
+         * Demo graph       (triangle + tail)
+         *
+         *      0
+         *     / \
+         *    1---2‑‑3‑‑4
+         */
+        Graph g = new Graph(5);
+        g.addEdge(0, 1); g.addEdge(1, 2); g.addEdge(2, 0); // triangle
+        g.addEdge(2, 3); g.addEdge(3, 4);                  // tail
+
+        int colors = 3;   // try with k = 3
+        GraphColoringCSP solver = new GraphColoringCSP(g, colors);
+        int[] result = solver.solve();
+
+        if (result == null) {
+            System.out.println("No " + colors + "-coloring exists.");
+        } else {
+            System.out.println(colors + "-coloring found:");
+            for (int v = 0; v < result.length; v++)
+                System.out.println("Vertex " + v + "  ->  color " + result[v]);
+        }
+    }
+}
