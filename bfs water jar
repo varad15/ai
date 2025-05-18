@@ -1,0 +1,121 @@
+import java.util.*;   // Queue, HashSet, List, LinkedList, Collections
+
+/**
+ * Water‑Jar problem solved with Breadth‑First Search (BFS)
+ * -------------------------------------------------------
+ *  • Two jugs with capacities CAP_A and CAP_B (litres).
+ *  • Unlimited water supply, you can:
+ *        ─ Fill a jug to the brim
+ *        ─ Empty a jug onto the ground
+ *        ─ Pour water from one jug to the other until either the
+ *          source is empty or the target is full
+ *  • Goal: reach a state where either jug contains TARGET litres.
+ *
+ *  BFS guarantees the *shortest* sequence of actions.
+ */
+public class WaterJarBFS {
+
+    /* ----------------------- customise problem here --------------------- */
+    private static final int CAP_A  = 4;   // capacity of jug A (litres)
+    private static final int CAP_B  = 3;   // capacity of jug B (litres)
+    private static final int TARGET = 2;   // desired amount in either jug
+    /* ------------------------------------------------------------------- */
+
+    /* ------------- Representation of a state (node in search) ---------- */
+    private static class State {
+        int a;          // current volume in jug A
+        int b;          // current volume in jug B
+        State parent;   // predecessor (for path reconstruction)
+        String action;  // description of action that produced this state
+
+        State(int a, int b, State parent, String action) {
+            this.a = a;
+            this.b = b;
+            this.parent = parent;
+            this.action = action;
+        }
+
+        /** Unique key “A,B” used in the visited set */
+        String key() { return a + "," + b; }
+
+        /** Checks if this state meets the goal */
+        boolean isGoal() { return a == TARGET || b == TARGET; }
+
+        /** Generates every legal successor state from current configuration */
+        List<State> nextStates() {
+            List<State> list = new ArrayList<>();
+
+            // 1. Fill Jug A
+            if (a < CAP_A) list.add(new State(CAP_A, b, this, "Fill A"));
+
+            // 2. Fill Jug B
+            if (b < CAP_B) list.add(new State(a, CAP_B, this, "Fill B"));
+
+            // 3. Empty Jug A
+            if (a > 0)     list.add(new State(0, b, this, "Empty A"));
+
+            // 4. Empty Jug B
+            if (b > 0)     list.add(new State(a, 0, this, "Empty B"));
+
+            // 5. Pour A → B
+            if (a > 0 && b < CAP_B) {
+                int pour = Math.min(a, CAP_B - b);
+                list.add(new State(a - pour, b + pour, this,
+                                   "Pour A → B (" + pour + "L)"));
+            }
+
+            // 6. Pour B → A
+            if (b > 0 && a < CAP_A) {
+                int pour = Math.min(b, CAP_A - a);
+                list.add(new State(a + pour, b - pour, this,
+                                   "Pour B → A (" + pour + "L)"));
+            }
+            return list;
+        }
+
+        @Override public String toString() { return "(" + a + ", " + b + ")"; }
+    }
+    /* ------------------------------ BFS ---------------------------------- */
+    private static void bfs() {
+        Queue<State> frontier = new LinkedList<>();
+        Set<String> visited   = new HashSet<>();
+
+        State start = new State(0, 0, null, "Start");
+        frontier.add(start);
+        visited.add(start.key());
+
+        while (!frontier.isEmpty()) {
+            State cur = frontier.poll();
+
+            if (cur.isGoal()) {
+                printPath(cur);
+                return;
+            }
+
+            for (State nxt : cur.nextStates()) {
+                if (visited.add(nxt.key())) { // true if not already visited
+                    frontier.add(nxt);
+                }
+            }
+        }
+        System.out.println("No solution exists for these parameters.");
+    }
+
+    /* Walk back via parent links, then print actions from start → goal */
+    private static void printPath(State goal) {
+        List<State> path = new ArrayList<>();
+        for (State s = goal; s != null; s = s.parent) path.add(s);
+        Collections.reverse(path);
+
+        System.out.println("Solution in " + (path.size() - 1) + " steps:");
+        for (int i = 0; i < path.size(); i++) {
+            State s = path.get(i);
+            System.out.printf("%2d. %-15s %s%n", i, s.action, s);
+        }
+    }
+
+    /* --------------------------- entry point ----------------------------- */
+    public static void main(String[] args) {
+        bfs();
+    }
+}
