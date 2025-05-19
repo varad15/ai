@@ -124,3 +124,19 @@ public class EightPuzzleBestFirst {
         bestFirst(start);
     }
 }
+OPEN    ← { start }          // frontier = priority queue ordered by lowest  h
+VISITED ← ∅                  // hash‑set of board‑strings already expanded
+
+while OPEN not empty:
+    current ← pop state with smallest h           // Greedy choice
+    if current.h == 0:            // goal test (Manhattan = 0)
+        reconstruct‑and‑print solution path
+        stop
+
+    VISITED ← VISITED ∪ { current.key }           // mark this board seen
+
+    for each child produced by sliding the blank U/D/L/R:
+        if child.key ∉ VISITED:                   // ignore duplicates
+            push child into OPEN                  // h computed in constructor
+
+print "No solution – puzzle is unsolvable"
