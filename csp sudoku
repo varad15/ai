@@ -1,0 +1,201 @@
+import java.util.*;
+
+/**
+ * ---------------------------------------------------------
+ *  Sudoku Solver (CSP formulation)
+ * ---------------------------------------------------------
+ *  – Variables : Cell[81]  (indexed 0…80 → row*9 + col)
+ *  – Domain    : {1…9}  pruned as we propagate constraints
+ *  – Constraints:
+ *        * Row   : all nine cells different
+ *        * Col   : all nine cells different
+ *        * Block : all nine cells in a 3×3 block different
+ *
+ *  Search  : Recursive back‑tracking
+ *  Heuristics:
+ *        1. MRV  – choose unfilled cell with the smallest domain
+ *        2. Forward‑checking  – remove chosen value from neighbours
+ *
+ *  Compile:  javac SudokuCSP.java
+ *  Run    :  java  SudokuCSP
+ * ---------------------------------------------------------
+ */
+public class SudokuCSP {
+
+    /* ========== Data structures ========== */
+
+    /** Domains[r][c] – current legal digits for each cell (bit‑mask 1<<d) */
+    private final int[][] domains = new int[9][9];
+
+    /** Board[r][c] – 0 if blank, otherwise the fixed digit (1‑9) */
+    private final int[][] board;
+
+    /** Pre‑computed neighbour lists: for each cell, indices of cells
+        sharing a row, column, or block (81 × ≤20) */
+    private static final int[][] NEIGHBOURS = new int[81][];
+
+    static { buildNeighbours(); }
+
+    /* ---------- Constructor ---------- */
+    public SudokuCSP(int[][] start) {
+        board = new int[9][9];
+        for (int r = 0; r < 9; r++) {
+            System.arraycopy(start[r], 0, board[r], 0, 9);
+            for (int c = 0; c < 9; c++)
+                domains[r][c] = (board[r][c] == 0) ? 0x3FE : (1 << board[r][c]); // bits 1‑9 set
+        }
+        /* Initial constraint propagation: remove fixed digits from peers */
+        for (int r = 0; r < 9; r++)
+            for (int c = 0; c < 9; c++)
+                if (board[r][c] != 0 && !forwardCheck(r, c, board[r][c], null))
+                    throw new IllegalArgumentException("Invalid starting puzzle");
+    }
+
+    /* ========== Public API ========== */
+
+    /** Solve in‑place; return true if a solution is found. */
+    public boolean solve() {
+        return backtrack();
+    }
+
+    /* ========== Core recursive search ========== */
+
+    /** Back‑tracking with MRV + forward‑checking */
+    private boolean backtrack() {
+
+        int[] cell = selectMRV();
+        if (cell == null) return true;          // all filled ⇒ solved
+
+        int r = cell[0], c = cell[1];
+        int mask = domains[r][c];
+
+        /* Try every candidate digit in this cell */
+        for (int d = 1; d <= 9; d++) {
+            if ((mask & (1 << d)) == 0) continue;  // already pruned
+
+            /* --- Choose ------------------------------------------------- */
+            board[r][c] = d;
+            Map<int[], Integer> pruned = new HashMap<>();
+            if (forwardCheck(r, c, d, pruned)) {
+
+                /* --- Explore ------------------------------------------ */
+                if (backtrack()) return true;   // success bubbles up
+            }
+
+            /* --- Undo -------------------------------------------------- */
+            undo(pruned);
+            board[r][c] = 0;
+        }
+        return false;   // back‑track
+    }
+
+    /* ========== Helper functions ========== */
+
+    /** Select unfilled cell with smallest domain (MRV). */
+    private int[] selectMRV() {
+        int bestSize = 10;
+        int bestR = -1, bestC = -1;
+
+        for (int r = 0; r < 9; r++)
+            for (int c = 0; c < 9; c++)
+                if (board[r][c] == 0) {
+                    int size = Integer.bitCount(domains[r][c]);
+                    if (size < bestSize) {
+                        bestSize = size; bestR = r; bestC = c;
+                        if (size == 1) return new int[]{r, c}; // cannot get better
+                    }
+                }
+        return (bestR == -1) ? null : new int[]{bestR, bestC};
+    }
+
+    /** Forward‑checking: remove digit d from neighbours’ domains.
+        If a neighbour’s domain becomes empty, return false (dead‑end). */
+    private boolean forwardCheck(int r, int c, int d,
+                                 Map<int[], Integer> pruned) {
+
+        for (int idx : NEIGHBOURS[r * 9 + c]) {
+            int nr = idx / 9, nc = idx % 9;
+            if (board[nr][nc] != 0) continue;          // already fixed
+
+            int before = domains[nr][nc];
+            int after  = before & ~(1 << d);           // clear bit d
+
+            if (before != after) {
+                if (pruned != null)                    // record only during search
+                    pruned.put(new int[]{nr, nc}, before);
+                domains[nr][nc] = after;
+                if (after == 0) return false;          // empty domain
+            }
+        }
+        return true;
+    }
+
+    /** Restore domains from the map recorded during the branch. */
+    private void undo(Map<int[], Integer> pruned) {
+        if (pruned == null) return;
+        for (Map.Entry<int[], Integer> e : pruned.entrySet()) {
+            int[] cell = e.getKey();
+            domains[cell[0]][cell[1]] = e.getValue();
+        }
+    }
+
+    /* Build NEIGHBOURS table once: O(81×81) pre‑processing. */
+    private static void buildNeighbours() {
+        for (int r = 0; r < 9; r++)
+            for (int c = 0; c < 9; c++) {
+                List<Integer> list = new ArrayList<>();
+                for (int i = 0; i < 9; i++) {           // row + col
+                    if (i != c) list.add(r * 9 + i);
+                    if (i != r) list.add(i * 9 + c);
+                }
+                int br = (r / 3) * 3, bc = (c / 3) * 3; // 3×3 block
+                for (int i = br; i < br + 3; i++)
+                    for (int j = bc; j < bc + 3; j++)
+                        if (!(i == r && j == c))
+                            list.add(i * 9 + j);
+                NEIGHBOURS[r * 9 + c] =
+                    list.stream().distinct().mapToInt(Integer::intValue).toArray();
+            }
+    }
+
+    /* ========== Demo harness ========== */
+
+    public static void main(String[] args) {
+
+        /* 0 = blank. Example: very hard puzzle (AI Escargot) */
+        int[][] puzzle = {
+            {1,0,0, 0,0,7, 0,9,0},
+            {0,3,0, 0,2,0, 0,0,8},
+            {0,0,9, 6,0,0, 5,0,0},
+
+            {0,0,5, 3,0,0, 9,0,0},
+            {0,1,0, 0,8,0, 0,0,2},
+            {6,0,0, 0,0,4, 0,0,0},
+
+            {3,0,0, 0,0,0, 0,1,0},
+            {0,4,0, 0,0,0, 0,0,7},
+            {0,0,7, 0,0,0, 3,0,0}
+        };
+
+        SudokuCSP solver = new SudokuCSP(puzzle);
+        if (solver.solve()) {
+            System.out.println("✔ Solved puzzle:");
+            print(solver.board);
+        } else {
+            System.out.println("❌ No solution.");
+        }
+    }
+
+    /* Pretty‑print board */
+    private static void print(int[][] b) {
+        for (int r = 0; r < 9; r++) {
+            if (r % 3 == 0) System.out.println("+-------+-------+-------+");
+            for (int c = 0; c < 9; c++) {
+                if (c % 3 == 0) System.out.print("| ");
+                System.out.print(b[r][c] == 0 ? ". " : b[r][c] + " ");
+            }
+            System.out.println("|");
+        }
+        System.out.println("+-------+-------+-------+");
+    }
+}
