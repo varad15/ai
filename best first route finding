@@ -111,3 +111,23 @@ public class GreedyBestFirstSearch {
         bestFirstSearch(graph, heuristic, "A", "G");
     }
 }
+OPEN    ← { start }          // priority‑queue ordered by lowest  h(n)
+CLOSED  ← ∅                  // hash‑set of cities already expanded
+
+while OPEN not empty:
+    current ← OPEN.poll()    // city with the smallest heuristic value
+
+    if current.name ∈ CLOSED          // duplicate via another path
+        continue                      // …skip to next
+
+    add current.name to CLOSED        // permanently expanded
+
+    if current.name == goal           // GOAL TEST
+        reconstruct & print full path
+        stop
+
+    for each outgoing edge (current → nbr : cost):
+        if nbr ∉ CLOSED               // only if not yet expanded
+            push Node(nbr, h(nbr), parent = current) into OPEN
+
+print "No path found."                // ← queue exhausted without goal
