@@ -133,3 +133,15 @@ public class EightPuzzleAStar {
         solve(start);
     }
 }
+
+OPEN  ← {start}
+CLOSED← ∅
+while OPEN not empty:
+    current ← state with lowest f = g+h
+    if current is goal: done
+    add current to CLOSED
+    for each legal move from current:
+         child ← result of move
+         if child not in CLOSED:
+              OPEN.insert(child)
+
