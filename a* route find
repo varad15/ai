@@ -151,3 +151,14 @@ public class AStarRoute {
         aStar("A", "G");
     }
 }
+OPEN  ← {start}
+CLOSED← ∅
+while OPEN not empty:
+    current ← pop lowest f
+    if current.city == goal: reconstruct path
+    if cheaper path already known: skip
+    CLOSED[city] = g
+    for each neighbour:
+        newG = g + cost
+        if neighbour not in CLOSED or newG < CLOSED[neighbour]:
+            push neighbour with g=newG
