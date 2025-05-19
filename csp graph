@@ -164,3 +164,14 @@ public class GraphColoringCSP {
         }
     }
 }
+
+backtrack()
+   ├─ selectUnassignedVertex  → v
+   ├─ for each color in dom[v]
+   │     ├─ isConsistent?
+   │     ├─ choose: assignment[v]=color
+   │     │           pruned = forwardCheck(...)
+   │     ├─ explore: backtrack()
+   │     └─ undo:    undoForwardCheck(pruned)
+   └─ return success when all vertices colored
+
